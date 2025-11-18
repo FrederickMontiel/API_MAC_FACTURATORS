@@ -9,29 +9,29 @@ import {
   JoinTable,
   JoinColumn,
 } from 'typeorm';
-import { Seccion } from './seccion.entity';
+import { Section } from './section.entity';
 import { Role } from './role.entity';
 
-@Entity('permisos')
-export class Permiso {
+@Entity('permissions')
+export class Permission {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ type: 'varchar', length: 100 })
-  nombre: string;
+  name: string;
 
   @Column({ type: 'varchar', length: 100, unique: true })
-  codigo: string;
+  code: string;
 
   @Column({ type: 'text', nullable: true })
-  descripcion: string;
+  description: string;
 
-  @ManyToOne(() => Seccion, (seccion) => seccion.permisos)
-  @JoinColumn({ name: 'seccion_id' })
-  seccion: Seccion;
+  @ManyToOne(() => Section, (section) => section.permissions)
+  @JoinColumn({ name: 'section_id' })
+  section: Section;
 
-  @Column({ name: 'seccion_id' })
-  seccionId: number;
+  @Column({ name: 'section_id' })
+  sectionId: number;
 
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
   createdAt: Date;
@@ -39,10 +39,10 @@ export class Permiso {
   @UpdateDateColumn({ type: 'timestamp', name: 'updated_at' })
   updatedAt: Date;
 
-  @ManyToMany(() => Role, (role) => role.permisos)
+  @ManyToMany(() => Role, (role) => role.permissions)
   @JoinTable({
-    name: 'role_permisos',
-    joinColumn: { name: 'permiso_id', referencedColumnName: 'id' },
+    name: 'role_permissions',
+    joinColumn: { name: 'permission_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
   })
   roles: Role[];

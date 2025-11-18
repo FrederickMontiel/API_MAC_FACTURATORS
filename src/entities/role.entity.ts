@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   ManyToMany,
 } from 'typeorm';
-import { Permiso } from './permiso.entity';
+import { Permission } from './permission.entity';
 
 @Entity('roles')
 export class Role {
@@ -14,10 +14,10 @@ export class Role {
   id: number;
 
   @Column({ type: 'varchar', length: 100, unique: true })
-  nombre: string;
+  name: string;
 
   @Column({ type: 'text', nullable: true })
-  descripcion: string;
+  description: string;
 
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
   createdAt: Date;
@@ -25,6 +25,6 @@ export class Role {
   @UpdateDateColumn({ type: 'timestamp', name: 'updated_at' })
   updatedAt: Date;
 
-  @ManyToMany(() => Permiso, (permiso) => permiso.roles)
-  permisos: Permiso[];
+  @ManyToMany(() => Permission, (permission) => permission.roles)
+  permissions: Permission[];
 }

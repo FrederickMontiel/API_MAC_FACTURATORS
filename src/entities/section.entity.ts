@@ -6,18 +6,18 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { Permiso } from './permiso.entity';
+import { Permission } from './permission.entity';
 
-@Entity('secciones')
-export class Seccion {
+@Entity('sections')
+export class Section {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ type: 'varchar', length: 100, unique: true })
-  nombre: string;
+  name: string;
 
   @Column({ type: 'text', nullable: true })
-  descripcion: string;
+  description: string;
 
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
   createdAt: Date;
@@ -25,6 +25,6 @@ export class Seccion {
   @UpdateDateColumn({ type: 'timestamp', name: 'updated_at' })
   updatedAt: Date;
 
-  @OneToMany(() => Permiso, (permiso) => permiso.seccion)
-  permisos: Permiso[];
+  @OneToMany(() => Permission, (permission) => permission.section)
+  permissions: Permission[];
 }

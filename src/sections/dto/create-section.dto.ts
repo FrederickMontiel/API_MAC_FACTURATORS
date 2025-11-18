@@ -1,12 +1,12 @@
 import { IsString, IsNotEmpty, MaxLength, IsOptional } from 'class-validator';
 
-export class CreateSeccionDto {
+export class CreateSectionDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  nombre: string;
+  name: string;
 
   @IsString()
   @IsOptional()
-  descripcion?: string;
+  description?: string;
 }

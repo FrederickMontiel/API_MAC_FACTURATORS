@@ -18,7 +18,7 @@ export class RolesService {
 
   async findAll(): Promise<Role[]> {
     return await this.roleRepository.find({
-      relations: ['permisos'],
+      relations: ['permissions'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -26,7 +26,7 @@ export class RolesService {
   async findOne(id: number): Promise<Role | null> {
     return await this.roleRepository.findOne({
       where: { id },
-      relations: ['permisos', 'permisos.seccion'],
+      relations: ['permissions', 'permissions.section'],
     });
   }
 

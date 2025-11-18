@@ -5,22 +5,22 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TokensModule } from './tokens/tokens.module';
 import { RolesModule } from './roles/roles.module';
-import { SeccionesModule } from './secciones/secciones.module';
-import { PermisosModule } from './permisos/permisos.module';
+import { SectionsModule } from './sections/sections.module';
+import { PermissionsModule } from './permissions/permissions.module';
 import { Token } from './entities/token.entity';
 import { Role } from './entities/role.entity';
-import { Seccion } from './entities/seccion.entity';
-import { Permiso } from './entities/permiso.entity';
+import { Section } from './entities/section.entity';
+import { Permission } from './entities/permission.entity';
 
 @Module({
   imports: [
-    // Configuración de variables de entorno
+    // Environment variables configuration
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
 
-    // Configuración de TypeORM con PostgreSQL
+    // TypeORM configuration with PostgreSQL
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -30,18 +30,18 @@ import { Permiso } from './entities/permiso.entity';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
-        entities: [Token, Role, Seccion, Permiso],
-        synchronize: configService.get('NODE_ENV') === 'development', // Solo en desarrollo
+        entities: [Token, Role, Section, Permission],
+        synchronize: configService.get('NODE_ENV') === 'development', // Only in development
         logging: configService.get('NODE_ENV') === 'development',
       }),
       inject: [ConfigService],
     }),
 
-    // Módulos de la aplicación
+    // Application modules
     TokensModule,
     RolesModule,
-    SeccionesModule,
-    PermisosModule,
+    SectionsModule,
+    PermissionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
