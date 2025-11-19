@@ -34,6 +34,7 @@ async function bootstrap() {
     .addTag('roles', 'Gestión de roles')
     .addTag('sections', 'Gestión de secciones')
     .addTag('permissions', 'Gestión de permisos')
+    .addTag('transaction-logs', 'Registro de transacciones y auditoría')
     .addBearerAuth()
     .build();
   

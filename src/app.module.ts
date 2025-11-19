@@ -7,10 +7,12 @@ import { TokensModule } from './tokens/tokens.module';
 import { RolesModule } from './roles/roles.module';
 import { SectionsModule } from './sections/sections.module';
 import { PermissionsModule } from './permissions/permissions.module';
+import { TransactionLogsModule } from './transaction-logs/transaction-logs.module';
 import { Token } from './entities/token.entity';
 import { Role } from './entities/role.entity';
 import { Section } from './entities/section.entity';
 import { Permission } from './entities/permission.entity';
+import { TransactionLog } from './entities/transaction-log.entity';
 
 @Module({
   imports: [
@@ -30,7 +32,7 @@ import { Permission } from './entities/permission.entity';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
-        entities: [Token, Role, Section, Permission],
+        entities: [Token, Role, Section, Permission, TransactionLog],
         synchronize: configService.get('NODE_ENV') === 'development', // Only in development
         logging: configService.get('NODE_ENV') === 'development',
       }),
@@ -42,6 +44,7 @@ import { Permission } from './entities/permission.entity';
     RolesModule,
     SectionsModule,
     PermissionsModule,
+    TransactionLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
