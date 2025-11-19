@@ -17,7 +17,7 @@ import { Permission } from './entities/permission.entity';
     // Environment variables configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
     }),
 
     // TypeORM configuration with PostgreSQL
