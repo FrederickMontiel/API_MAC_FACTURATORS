@@ -15,6 +15,9 @@ import { Permission } from './entities/permission.entity';
 import { TransactionLog } from './entities/transaction-log.entity';
 import { TransactionStatus } from './entities/transaction-status.entity';
 import { TransactionType } from './entities/transaction-type.entity';
+import { LoggingService } from './logging/logging.service';
+import { LoggingInterceptor } from './logging/logging.interceptor';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -49,6 +52,13 @@ import { TransactionType } from './entities/transaction-type.entity';
     TransactionLogsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    LoggingService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
+    },
+  ],
 })
 export class AppModule {}
