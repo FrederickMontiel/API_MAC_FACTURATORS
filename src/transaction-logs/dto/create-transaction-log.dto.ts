@@ -11,12 +11,12 @@ export class CreateTransactionLogDto {
   tokenId: number;
 
   @ApiProperty({
-    description: 'Type of transaction',
-    example: 'BYTE_TRANSFER',
+    description: 'Transaction type ID',
+    example: 1,
   })
-  @IsString()
+  @IsNumber()
   @IsNotEmpty()
-  transactionType: string;
+  transactionTypeId: number;
 
   @ApiPropertyOptional({
     description: 'Transaction amount',
@@ -43,6 +43,14 @@ export class CreateTransactionLogDto {
   @IsOptional()
   context?: any;
 
+  @ApiPropertyOptional({
+    description: 'HTTP headers from the request',
+    example: { 'content-type': 'application/json', 'authorization': 'Bearer token' },
+  })
+  @IsObject()
+  @IsOptional()
+  headers?: any;
+
   @ApiProperty({
     description: 'Request payload',
     example: { method: 'POST', endpoint: '/api/transfer', body: {} },
@@ -60,13 +68,12 @@ export class CreateTransactionLogDto {
   response?: any;
 
   @ApiProperty({
-    description: 'Transaction status',
-    example: 'SUCCESS',
-    enum: ['SUCCESS', 'FAILED', 'PENDING', 'ERROR'],
+    description: 'Transaction status ID',
+    example: 3,
   })
-  @IsString()
+  @IsNumber()
   @IsNotEmpty()
-  status: string;
+  statusId: number;
 
   @ApiPropertyOptional({
     description: 'Error message if transaction failed',

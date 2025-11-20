@@ -7,6 +7,8 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Token } from './token.entity';
+import { TransactionType } from './transaction-type.entity';
+import { TransactionStatus } from './transaction-status.entity';
 
 @Entity('transaction_logs')
 export class TransactionLog {
@@ -20,8 +22,12 @@ export class TransactionLog {
   @JoinColumn({ name: 'token_id' })
   token: Token;
 
-  @Column({ type: 'varchar', length: 100, name: 'transaction_type' })
-  transactionType: string;
+  @Column({ type: 'integer', name: 'transaction_type_id' })
+  transactionTypeId: number;
+
+  @ManyToOne(() => TransactionType, { eager: true })
+  @JoinColumn({ name: 'transaction_type_id' })
+  transactionType: TransactionType;
 
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   amount: number;
@@ -32,14 +38,21 @@ export class TransactionLog {
   @Column({ type: 'jsonb', nullable: true })
   context: any;
 
+  @Column({ type: 'jsonb', nullable: true })
+  headers: any;
+
   @Column({ type: 'jsonb' })
   request: any;
 
   @Column({ type: 'jsonb', nullable: true })
   response: any;
 
-  @Column({ type: 'varchar', length: 50 })
-  status: string;
+  @Column({ type: 'integer', name: 'status_id' })
+  statusId: number;
+
+  @ManyToOne(() => TransactionStatus, { eager: true })
+  @JoinColumn({ name: 'status_id' })
+  status: TransactionStatus;
 
   @Column({ type: 'text', nullable: true, name: 'error_message' })
   errorMessage: string;

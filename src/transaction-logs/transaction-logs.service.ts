@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { TransactionLog } from '../entities/transaction-log.entity';
+import { TransactionStatus } from '../entities/transaction-status.entity';
+import { TransactionType } from '../entities/transaction-type.entity';
 import { CreateTransactionLogDto } from './dto/create-transaction-log.dto';
 
 @Injectable()
@@ -9,6 +11,10 @@ export class TransactionLogsService {
   constructor(
     @InjectRepository(TransactionLog)
     private readonly transactionLogRepository: Repository<TransactionLog>,
+    @InjectRepository(TransactionStatus)
+    private readonly transactionStatusRepository: Repository<TransactionStatus>,
+    @InjectRepository(TransactionType)
+    private readonly transactionTypeRepository: Repository<TransactionType>,
   ) {}
 
   async create(createTransactionLogDto: CreateTransactionLogDto): Promise<TransactionLog> {
@@ -40,22 +46,42 @@ export class TransactionLogsService {
     });
   }
 
-  async findByType(transactionType: string, limit: number = 50): Promise<TransactionLog[]> {
+  async findByType(transactionTypeId: number, limit: number = 50): Promise<TransactionLog[]> {
     return await this.transactionLogRepository.find({
-      where: { transactionType },
+      where: { transactionTypeId },
       relations: ['token'],
       order: { createdAt: 'DESC' },
       take: limit,
     });
   }
 
-  async findByStatus(status: string, limit: number = 50): Promise<TransactionLog[]> {
+  async findByStatus(statusId: number, limit: number = 50): Promise<TransactionLog[]> {
     return await this.transactionLogRepository.find({
-      where: { status },
+      where: { statusId },
       relations: ['token'],
       order: { createdAt: 'DESC' },
       take: limit,
     });
+  }
+
+  async getAllStatuses(): Promise<TransactionStatus[]> {
+    return await this.transactionStatusRepository.find({
+      order: { id: 'ASC' },
+    });
+  }
+
+  async getAllTypes(): Promise<TransactionType[]> {
+    return await this.transactionTypeRepository.find({
+      order: { id: 'ASC' },
+    });
+  }
+
+  async getStatusByCode(code: string): Promise<TransactionStatus | null> {
+    return await this.transactionStatusRepository.findOne({ where: { code } });
+  }
+
+  async getTypeByCode(code: string): Promise<TransactionType | null> {
+    return await this.transactionTypeRepository.findOne({ where: { code } });
   }
 
   async findByDateRange(startDate: Date, endDate: Date): Promise<TransactionLog[]> {
@@ -69,11 +95,15 @@ export class TransactionLogsService {
   }
 
   async getStatistics() {
+    const successStatus = await this.getStatusByCode('SUCCESS');
+    const failedStatus = await this.getStatusByCode('FAILED');
+    const pendingStatus = await this.getStatusByCode('PENDING');
+
     const [total, success, failed, pending] = await Promise.all([
       this.transactionLogRepository.count(),
-      this.transactionLogRepository.count({ where: { status: 'SUCCESS' } }),
-      this.transactionLogRepository.count({ where: { status: 'FAILED' } }),
-      this.transactionLogRepository.count({ where: { status: 'PENDING' } }),
+      successStatus ? this.transactionLogRepository.count({ where: { statusId: successStatus.id } }) : 0,
+      failedStatus ? this.transactionLogRepository.count({ where: { statusId: failedStatus.id } }) : 0,
+      pendingStatus ? this.transactionLogRepository.count({ where: { statusId: pendingStatus.id } }) : 0,
     ]);
 
     return {

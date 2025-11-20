@@ -49,22 +49,36 @@ export class TransactionLogsController {
     return this.transactionLogsService.findByToken(+tokenId, limit);
   }
 
-  @Get('type/:type')
-  @ApiOperation({ summary: 'Get logs by transaction type' })
-  @ApiParam({ name: 'type', description: 'Transaction type', example: 'BYTE_TRANSFER' })
-  @ApiQuery({ name: 'limit', required: false, example: 50 })
-  @ApiResponse({ status: 200, description: 'Logs for the transaction type' })
-  findByType(@Param('type') type: string, @Query('limit') limit?: number) {
-    return this.transactionLogsService.findByType(type, limit);
+  @Get('statuses')
+  @ApiOperation({ summary: 'Get all transaction statuses' })
+  @ApiResponse({ status: 200, description: 'List of transaction statuses' })
+  getAllStatuses() {
+    return this.transactionLogsService.getAllStatuses();
   }
 
-  @Get('status/:status')
-  @ApiOperation({ summary: 'Get logs by status' })
-  @ApiParam({ name: 'status', description: 'Status', example: 'SUCCESS' })
+  @Get('types')
+  @ApiOperation({ summary: 'Get all transaction types' })
+  @ApiResponse({ status: 200, description: 'List of transaction types' })
+  getAllTypes() {
+    return this.transactionLogsService.getAllTypes();
+  }
+
+  @Get('type/:typeId')
+  @ApiOperation({ summary: 'Get logs by transaction type ID' })
+  @ApiParam({ name: 'typeId', description: 'Transaction type ID', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 50 })
+  @ApiResponse({ status: 200, description: 'Logs for the transaction type' })
+  findByType(@Param('typeId') typeId: string, @Query('limit') limit?: number) {
+    return this.transactionLogsService.findByType(+typeId, limit);
+  }
+
+  @Get('status/:statusId')
+  @ApiOperation({ summary: 'Get logs by status ID' })
+  @ApiParam({ name: 'statusId', description: 'Status ID', example: 3 })
   @ApiQuery({ name: 'limit', required: false, example: 50 })
   @ApiResponse({ status: 200, description: 'Logs for the status' })
-  findByStatus(@Param('status') status: string, @Query('limit') limit?: number) {
-    return this.transactionLogsService.findByStatus(status, limit);
+  findByStatus(@Param('statusId') statusId: string, @Query('limit') limit?: number) {
+    return this.transactionLogsService.findByStatus(+statusId, limit);
   }
 
   @Get(':id')

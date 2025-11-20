@@ -13,6 +13,8 @@ import { Role } from './entities/role.entity';
 import { Section } from './entities/section.entity';
 import { Permission } from './entities/permission.entity';
 import { TransactionLog } from './entities/transaction-log.entity';
+import { TransactionStatus } from './entities/transaction-status.entity';
+import { TransactionType } from './entities/transaction-type.entity';
 
 @Module({
   imports: [
@@ -32,7 +34,7 @@ import { TransactionLog } from './entities/transaction-log.entity';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
-        entities: [Token, Role, Section, Permission, TransactionLog],
+        entities: [Token, Role, Section, Permission, TransactionLog, TransactionStatus, TransactionType],
         synchronize: configService.get('NODE_ENV') === 'development', // Only in development
         logging: configService.get('NODE_ENV') === 'development',
       }),
