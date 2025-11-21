@@ -5,12 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
-  ManyToMany,
-  JoinTable,
   JoinColumn,
 } from 'typeorm';
 import { Section } from './section.entity';
-import { Role } from './role.entity';
 
 @Entity('permissions')
 export class Permission {
@@ -38,12 +35,4 @@ export class Permission {
 
   @UpdateDateColumn({ type: 'timestamp', name: 'updated_at' })
   updatedAt: Date;
-
-  @ManyToMany(() => Role, (role) => role.permissions)
-  @JoinTable({
-    name: 'role_permissions',
-    joinColumn: { name: 'permission_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
-  })
-  roles: Role[];
 }

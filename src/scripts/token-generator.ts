@@ -1,34 +1,31 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { TokensService } from '../tokens/tokens.service';
-import { RolesService } from '../roles/roles.service';
-import { PermissionsService } from '../permissions/permissions.service';
+import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import * as jwt from 'jsonwebtoken';
 
 async function generateToken() {
   const app = await NestFactory.createApplicationContext(AppModule);
 
   const tokensService = app.get(TokensService);
-  const rolesService = app.get(RolesService);
-  const permissionsService = app.get(PermissionsService);
+  const dataSource = app.get(DataSource);
 
   try {
     const args = process.argv.slice(2);
     
     if (args.length < 2) {
-      console.error('\n❌ Error: Debe proporcionar la plataforma y los permisos o rol\n');
+      console.error('\n❌ Error: Debe proporcionar la plataforma\n');
       console.log('Uso:');
-      console.log('  npm run token:generate -- --platform PLATFORM_ID PERMISSION1,PERMISSION2');
-      console.log('  npm run token:generate -- --platform PLATFORM_ID --role ROLE_NAME');
-      console.log('  npm run token:generate -- --platform PLATFORM_ID 1,2,3 (IDs de permisos)\n');
+      console.log('  pnpm run token:generate --platform PLATFORM_ID\n');
       console.log('Ejemplos:');
-      console.log('  npm run token:generate -- --platform sitio-web-operaciones --role API');
-      console.log('  npm run token:generate -- --platform byte-transfers WS_TRANSACTIONS_VIEW,DEPOSIT_CASH\n');
+      console.log('  pnpm run token:generate --platform sitio-web-operaciones');
+      console.log('  pnpm run token:generate --platform byte-transfers\n');
+      console.log('Los permisos se asignan automáticamente según la plataforma configurada en la BD.\n');
       process.exit(1);
     }
 
-    let permissionIds: number[] = [];
-    let roleName: string | null = null;
     let platformId: string;
 
     // Verificar que el primer argumento sea --platform
@@ -39,94 +36,100 @@ async function generateToken() {
 
     platformId = args[1];
 
-    // Verificar si es un rol
-    if (args[2] === '--role' && args[3]) {
-      roleName = args[3];
-      const role = await rolesService.findByName(roleName);
-      
-      if (!role) {
-        console.error(`\n❌ Error: El rol "${roleName}" no existe\n`);
-        process.exit(1);
-      }
+    // Verificar que la plataforma exista
+    const platform = await dataSource.query(
+      'SELECT * FROM platforms WHERE id = $1',
+      [platformId]
+    );
 
-      // Obtener permisos del rol (necesitarás implementar este método)
-      const rolePermissions = await rolesService.findRolePermissions(role.id);
-      permissionIds = rolePermissions.map(p => p.id);
-      
-      console.log(`\n✓ Rol encontrado: ${role.name}`);
-    } else {
-      // Procesar permisos (desde args[2] en adelante)
-      const input = args.slice(2).join(' ').split(',').map(p => p.trim());
-      
-      // Verificar si son IDs numéricos o códigos
-      const isNumeric = input.every(p => !isNaN(Number(p)));
-      
-      if (isNumeric) {
-        permissionIds = input.map(Number);
-        
-        // Validar que existan los permisos
-        for (const id of permissionIds) {
-          const permission = await permissionsService.findOne(id);
-          if (!permission) {
-            console.error(`\n❌ Error: El permiso con ID ${id} no existe\n`);
-            process.exit(1);
-          }
-        }
-      } else {
-        // Son códigos de permisos
-        for (const code of input) {
-          const permission = await permissionsService.findByCode(code);
-          if (!permission) {
-            console.error(`\n❌ Error: El permiso "${code}" no existe\n`);
-            process.exit(1);
-          }
-          permissionIds.push(permission.id);
-        }
-      }
-    }
-
-    if (permissionIds.length === 0) {
-      console.error('\n❌ Error: No se encontraron permisos válidos\n');
+    if (!platform || platform.length === 0) {
+      console.error(`\n❌ Error: La plataforma "${platformId}" no existe\n`);
       process.exit(1);
     }
 
-    // Generar token
-    const tokenValue = uuidv4();
-    const timestamp = Date.now();
+    console.log(`\n✓ Plataforma encontrada: ${platform[0].name}`);
+
+    // Obtener permisos asignados a la plataforma
+    const platformPermissions = await dataSource.query(`
+      SELECT p.id, p.code, p.name, p.description
+      FROM platform_permissions pp
+      INNER JOIN permissions p ON pp.permission_id = p.id
+      WHERE pp.platform_id = $1
+      ORDER BY p.id
+    `, [platformId]);
+
+    if (!platformPermissions || platformPermissions.length === 0) {
+      console.error(`\n❌ Error: La plataforma "${platformId}" no tiene permisos asignados\n`);
+      console.log('Configure los permisos en la tabla platform_permissions de la base de datos.\n');
+      process.exit(1);
+    }
+
+    console.log(`✓ Permisos de la plataforma: ${platformPermissions.length} permisos encontrados`);
+
+    // Obtener configuración
+    const configService = app.get(ConfigService);
+    const jwtSecret = configService.get<string>('JWT_SECRET') || 'default-secret-key-change-in-production';
+    const jwtExpiration = configService.get<string>('JWT_EXPIRATION') || '90d';
+
+    if (!jwtSecret || jwtSecret === 'default-secret-key-change-in-production') {
+      console.warn('\n⚠️  Advertencia: Usando JWT_SECRET por defecto. Configure JWT_SECRET en .env\n');
+    }
+
+    // Generar UUID para el token
+    const tokenUuid = uuidv4();
     
+    // Obtener el siguiente número de token para la plataforma
+    const platformTokenNumber = await tokensService.getNextPlatformTokenNumber(platformId);
+
+    // Calcular fecha de expiración
+    const expiresAt = new Date();
+    if (jwtExpiration.endsWith('d')) {
+      expiresAt.setDate(expiresAt.getDate() + parseInt(jwtExpiration));
+    } else if (jwtExpiration.endsWith('h')) {
+      expiresAt.setHours(expiresAt.getHours() + parseInt(jwtExpiration));
+    }
+
+    // Crear payload del JWT (SOLO UUID - todo lo demás se consulta desde BD)
+    const payload = {
+      uuid: tokenUuid,
+    };
+
+    // Generar JWT firmado
+    const jwtToken = jwt.sign(
+      payload, 
+      jwtSecret as jwt.Secret, 
+      { 
+        expiresIn: jwtExpiration,
+        issuer: 'facturador-api',
+      } as jwt.SignOptions
+    );
+    
+    // Crear el token en la base de datos
     const token = await tokensService.create({
-      id: timestamp,
+      id: tokenUuid,
       platformId: platformId,
+      platformTokenNumber: platformTokenNumber,
       isActive: true,
-      jwt: tokenValue,
+      expiresAt: expiresAt,
+      jwt: jwtToken,
     });
-
-    // Asociar permisos al token (necesitarás implementar este método)
-    await tokensService.assignPermissions(token.id, permissionIds);
-
-    // Obtener información de permisos para mostrar
-    const permissions = (await Promise.all(
-      permissionIds.map(id => permissionsService.findOne(id))
-    )).filter(p => p !== null);
 
     // Mostrar resultado
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('✓ Token generado exitosamente');
+    console.log('✓ Token JWT generado exitosamente');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`\nToken: ${tokenValue}`);
-    console.log(`ID: ${token.id}`);
-    console.log(`Plataforma: ${token.platformId}`);
-    console.log(`Número de token de plataforma: ${token.platformTokenNumber}`);
-    if (roleName) {
-      console.log(`Rol: ${roleName}`);
-    }
-    console.log(`\nPermisos asignados (${permissions.length}):`);
-    permissions.forEach(p => {
-      if (p) {
-        console.log(`  • ${p.code} - ${p.name}`);
-      }
+    console.log(`\nToken JWT: ${jwtToken}`);
+    console.log(`\nUUID: ${token.id}`);
+    console.log(`Plataforma: ${token.platformId} (${platform[0].name})`);
+    console.log(`Número de token: ${token.platformTokenNumber}`);
+    console.log(`Expira: ${expiresAt.toISOString()}`);
+    console.log(`\nPermisos de la plataforma (${platformPermissions.length}):`);
+    platformPermissions.forEach(p => {
+      console.log(`  • ${p.code} - ${p.name}`);
     });
-    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('\n💡 Los permisos se validan dinámicamente desde la BD en cada request.');
+    console.log('   Para cambiar permisos, actualiza la tabla platform_permissions.\n');
 
   } catch (error) {
     console.error('\n❌ Error al generar token:', error.message);

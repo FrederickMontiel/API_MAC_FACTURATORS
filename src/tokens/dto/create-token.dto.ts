@@ -3,11 +3,11 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateTokenDto {
   @ApiProperty({
-    description: 'Token ID',
-    example: 123456,
+    description: 'Token UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
     required: false,
   })
-  id?: number;
+  id?: string;
 
   @ApiProperty({
     description: 'Platform ID reference',
@@ -25,6 +25,13 @@ export class CreateTokenDto {
     required: false,
   })
   platformTokenNumber?: number;
+
+  @ApiProperty({
+    description: 'Token expiration date',
+    example: '2025-12-31T23:59:59Z',
+    required: false,
+  })
+  expiresAt?: Date;
 
   @ApiProperty({
     description: 'Token active status',

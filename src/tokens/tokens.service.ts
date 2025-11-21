@@ -11,31 +11,7 @@ export class TokensService {
     private readonly tokenRepository: Repository<Token>,
   ) {}
 
-  /**
-   * Genera un ID aleatorio único entre 100000 y 999999
-   */
-  private async generateUniqueId(): Promise<number> {
-    const MIN_ID = 100000;
-    const MAX_ID = 999999;
-    const MAX_ATTEMPTS = 100;
 
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const randomId = Math.floor(Math.random() * (MAX_ID - MIN_ID + 1)) + MIN_ID;
-      
-      // Verificar si el ID ya existe
-      const existingToken = await this.tokenRepository.findOne({
-        where: { id: randomId },
-      });
-
-      if (!existingToken) {
-        return randomId;
-      }
-    }
-
-    throw new ConflictException(
-      'No se pudo generar un ID único después de múltiples intentos',
-    );
-  }
 
   /**
    * Obtiene el siguiente número de token para una plataforma específica
@@ -50,18 +26,7 @@ export class TokensService {
   }
 
   async create(createTokenDto: CreateTokenDto): Promise<Token> {
-    const uniqueId = await this.generateUniqueId();
-    
-    // Generar el número de token para la plataforma si no se proporciona
-    const platformTokenNumber = createTokenDto.platformTokenNumber || 
-      await this.getNextPlatformTokenNumber(createTokenDto.platformId);
-
-    const token = this.tokenRepository.create({
-      id: uniqueId,
-      ...createTokenDto,
-      platformTokenNumber,
-    });
-
+    const token = this.tokenRepository.create(createTokenDto);
     return await this.tokenRepository.save(token);
   }
 
@@ -71,7 +36,7 @@ export class TokensService {
     });
   }
 
-  async findOne(id: number): Promise<Token | null> {
+  async findOne(id: string): Promise<Token | null> {
     return await this.tokenRepository.findOne({ where: { id } });
   }
 
@@ -86,18 +51,18 @@ export class TokensService {
     return await this.tokenRepository.findOne({ where: { jwt } });
   }
 
-  async assignPermissions(tokenId: number, permissionIds: number[]): Promise<void> {
+  async assignPermissions(tokenId: string, permissionIds: number[]): Promise<void> {
     // Este método necesitará una tabla de relación token_permissions
     // Por ahora, lo dejamos como stub
     console.log(`Assigning permissions ${permissionIds} to token ${tokenId}`);
   }
 
-  async update(id: number, updateTokenDto: UpdateTokenDto): Promise<Token | null> {
+  async update(id: string, updateTokenDto: UpdateTokenDto): Promise<Token | null> {
     await this.tokenRepository.update(id, updateTokenDto);
     return await this.findOne(id);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: string): Promise<void> {
     await this.tokenRepository.delete(id);
   }
 }

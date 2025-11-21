@@ -8,8 +8,8 @@ import {
 
 @Entity('tokens')
 export class Token {
-  @PrimaryColumn({ type: 'bigint' })
-  id: number;
+  @PrimaryColumn({ type: 'uuid' })
+  id: string;
 
   @Column({ type: 'varchar', length: 100, name: 'platform_id' })
   platformId: string;
@@ -20,12 +20,15 @@ export class Token {
   @Column({ type: 'boolean', default: true, name: 'is_active' })
   isActive: boolean;
 
+  @Column({ type: 'timestamp', nullable: true, name: 'expires_at' })
+  expiresAt: Date;
+
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
   createdAt: Date;
 
   @UpdateDateColumn({ type: 'timestamp', name: 'updated_at' })
   updatedAt: Date;
 
-  @Column({ type: 'varchar', length: 500 })
+  @Column({ type: 'text' })
   jwt: string;
 }
