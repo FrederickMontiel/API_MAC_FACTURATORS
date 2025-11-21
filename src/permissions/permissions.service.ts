@@ -38,6 +38,13 @@ export class PermissionsService {
     });
   }
 
+  async findByCode(code: string): Promise<Permission | null> {
+    return await this.permissionRepository.findOne({
+      where: { code },
+      relations: ['section'],
+    });
+  }
+
   async update(id: number, updatePermissionDto: UpdatePermissionDto): Promise<Permission | null> {
     await this.permissionRepository.update(id, updatePermissionDto);
     return await this.findOne(id);

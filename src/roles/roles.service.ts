@@ -30,6 +30,21 @@ export class RolesService {
     });
   }
 
+  async findByName(name: string): Promise<Role | null> {
+    return await this.roleRepository.findOne({
+      where: { name },
+      relations: ['permissions'],
+    });
+  }
+
+  async findRolePermissions(roleId: number): Promise<any[]> {
+    const role = await this.roleRepository.findOne({
+      where: { id: roleId },
+      relations: ['permissions'],
+    });
+    return role?.permissions || [];
+  }
+
   async update(id: number, updateRoleDto: UpdateRoleDto): Promise<Role | null> {
     await this.roleRepository.update(id, updateRoleDto);
     return await this.findOne(id);

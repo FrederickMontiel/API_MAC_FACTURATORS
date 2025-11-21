@@ -37,12 +37,29 @@ export class TokensService {
     );
   }
 
+  /**
+   * Obtiene el siguiente número de token para una plataforma específica
+   */
+  async getNextPlatformTokenNumber(platformId: string): Promise<number> {
+    const lastToken = await this.tokenRepository.findOne({
+      where: { platformId },
+      order: { platformTokenNumber: 'DESC' },
+    });
+
+    return lastToken ? lastToken.platformTokenNumber + 1 : 1;
+  }
+
   async create(createTokenDto: CreateTokenDto): Promise<Token> {
     const uniqueId = await this.generateUniqueId();
+    
+    // Generar el número de token para la plataforma si no se proporciona
+    const platformTokenNumber = createTokenDto.platformTokenNumber || 
+      await this.getNextPlatformTokenNumber(createTokenDto.platformId);
 
     const token = this.tokenRepository.create({
       id: uniqueId,
       ...createTokenDto,
+      platformTokenNumber,
     });
 
     return await this.tokenRepository.save(token);
@@ -58,8 +75,21 @@ export class TokensService {
     return await this.tokenRepository.findOne({ where: { id } });
   }
 
-  async findByPlatform(platform: string): Promise<Token[]> {
-    return await this.tokenRepository.find({ where: { platform } });
+  async findByPlatform(platformId: string): Promise<Token[]> {
+    return await this.tokenRepository.find({ 
+      where: { platformId },
+      order: { platformTokenNumber: 'ASC' },
+    });
+  }
+
+  async findByJwt(jwt: string): Promise<Token | null> {
+    return await this.tokenRepository.findOne({ where: { jwt } });
+  }
+
+  async assignPermissions(tokenId: number, permissionIds: number[]): Promise<void> {
+    // Este método necesitará una tabla de relación token_permissions
+    // Por ahora, lo dejamos como stub
+    console.log(`Assigning permissions ${permissionIds} to token ${tokenId}`);
   }
 
   async update(id: number, updateTokenDto: UpdateTokenDto): Promise<Token | null> {

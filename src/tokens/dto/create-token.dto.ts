@@ -3,14 +3,35 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateTokenDto {
   @ApiProperty({
-    description: 'Platform identifier',
-    example: 'byte-transfers',
+    description: 'Token ID',
+    example: 123456,
+    required: false,
+  })
+  id?: number;
+
+  @ApiProperty({
+    description: 'Platform ID reference',
+    example: 'sitio-web-operaciones',
     maxLength: 100,
   })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  platform: string;
+  platformId: string;
+
+  @ApiProperty({
+    description: 'Platform token number (sequential per platform)',
+    example: 1,
+    required: false,
+  })
+  platformTokenNumber?: number;
+
+  @ApiProperty({
+    description: 'Token active status',
+    example: true,
+    default: true,
+  })
+  isActive?: boolean;
 
   @ApiProperty({
     description: 'JWT authentication token',
