@@ -7,6 +7,7 @@ import { TokensModule } from './tokens/tokens.module';
 import { SectionsModule } from './sections/sections.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { TransactionLogsModule } from './transaction-logs/transaction-logs.module';
+import { ByteModule } from './byte/byte.module';
 import { Token } from './entities/token.entity';
 import { Section } from './entities/section.entity';
 import { Permission } from './entities/permission.entity';
@@ -46,6 +47,7 @@ import { PlatformPermission } from './entities/platform-permission.entity';
     SectionsModule,
     PermissionsModule,
     TransactionLogsModule,
+    ByteModule,
   ],
   controllers: [AppController],
   providers: [AppService],
