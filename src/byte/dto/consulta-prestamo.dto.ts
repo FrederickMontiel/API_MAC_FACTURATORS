@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, Length, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ConsultaPrestamoRequestDto {
@@ -7,7 +7,8 @@ export class ConsultaPrestamoRequestDto {
     example: 'TXN-2025-PRE-001',
   })
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'El ID de transacción es obligatorio' })
+  @Length(5, 100, { message: 'El ID de transacción debe tener entre 5 y 100 caracteres' })
   idTransaccion: string;
 
   @ApiProperty({
@@ -15,7 +16,9 @@ export class ConsultaPrestamoRequestDto {
     example: 'PRES-0001234567',
   })
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'El número de préstamo es obligatorio' })
+  @Length(5, 30, { message: 'El número de préstamo debe tener entre 5 y 30 caracteres' })
+  @Matches(/^[A-Z0-9-]+$/, { message: 'El número de préstamo solo debe contener letras mayúsculas, números y guiones' })
   numPrestamo: string;
 }
 

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString, Min, Max, Length, Matches } from 'class-validator';
 
 export class RetiroCtaRequestDto {
   @ApiProperty({

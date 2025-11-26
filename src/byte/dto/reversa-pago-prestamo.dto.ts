@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, Length, Matches, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ReversaPagoPrestamoRequestDto {
@@ -7,7 +7,8 @@ export class ReversaPagoPrestamoRequestDto {
     example: 'TXN-2025-REV-001',
   })
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'El ID de transacción es obligatorio' })
+  @Length(5, 100, { message: 'El ID de transacción debe tener entre 5 y 100 caracteres' })
   idTransaccion: string;
 
   @ApiProperty({
@@ -15,7 +16,9 @@ export class ReversaPagoPrestamoRequestDto {
     example: 'PRES-0001234567',
   })
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'El número de préstamo es obligatorio' })
+  @Length(5, 30, { message: 'El número de préstamo debe tener entre 5 y 30 caracteres' })
+  @Matches(/^[A-Z0-9-]+$/, { message: 'El número de préstamo solo debe contener letras mayúsculas, números y guiones' })
   numPrestamo: string;
 
   @ApiProperty({
@@ -23,7 +26,9 @@ export class ReversaPagoPrestamoRequestDto {
     example: 'AUTH12345678901234',
   })
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'El número de autorización es obligatorio' })
+  @Length(10, 50, { message: 'El número de autorización debe tener entre 10 y 50 caracteres' })
+  @Matches(/^[A-Z0-9]+$/, { message: 'El número de autorización solo debe contener letras mayúsculas y números' })
   autorizacionOriginal: string;
 
   @ApiProperty({
@@ -31,8 +36,10 @@ export class ReversaPagoPrestamoRequestDto {
     example: 'Error en aplicación de pago',
     required: false,
   })
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'El motivo debe ser una cadena de texto' })
+  @IsNotEmpty({ message: 'El motivo de la reversa es obligatorio' })
+  @MinLength(10, { message: 'El motivo debe tener al menos 10 caracteres' })
+  @Length(10, 500, { message: 'El motivo debe tener entre 10 y 500 caracteres' })
   motivo: string;
 }
 

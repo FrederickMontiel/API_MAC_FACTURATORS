@@ -16,6 +16,15 @@ import {
   ReversaPagoPrestamoRequestDto,
   ReversaPagoPrestamoResponseDto
 } from './dto';
+import {
+  AccountNotFoundException,
+  InsufficientBalanceException,
+  LoanNotFoundException,
+  InvalidAmountException,
+  InvalidTransactionException,
+  AuthorizationNotFoundException,
+  DuplicateTransactionException,
+} from './exceptions';
 
 /**
  * Simulador del servicio Byte para desarrollo y testing
@@ -90,27 +99,20 @@ export class ByteMockService {
 
     // Validar que la cuenta existe
     if (!this.cuentasSimuladas.has(request.numCuenta)) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        codRespuesta: '001',
-        descRespuesta: 'Cuenta no existe',
-        numCuenta: request.numCuenta,
-        nuevoSaldo: 0,
-      };
+      throw new AccountNotFoundException(request.numCuenta);
     }
 
     // Validar que el monto total coincide
     const sumaMontos = (request.montoEfectivo || 0) + (request.montoCheque || 0);
     if (Math.abs(sumaMontos - request.montoTotal) > 0.01) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        codRespuesta: '002',
-        descRespuesta: 'Monto total no coincide con suma de montos',
-        numCuenta: request.numCuenta,
-        nuevoSaldo: this.cuentasSimuladas.get(request.numCuenta)!,
-      };
+      throw new InvalidAmountException(
+        `El monto total (Q${request.montoTotal.toFixed(2)}) no coincide con la suma de efectivo (Q${(request.montoEfectivo || 0).toFixed(2)}) y cheque (Q${(request.montoCheque || 0).toFixed(2)})`
+      );
+    }
+
+    // Validar que hay al menos un método de pago
+    if ((request.montoEfectivo || 0) === 0 && (request.montoCheque || 0) === 0) {
+      throw new InvalidAmountException('Debe especificar al menos un método de pago (efectivo o cheque)');
     }
 
     // Simular éxito
@@ -147,28 +149,14 @@ export class ByteMockService {
 
     // Validar que la cuenta existe
     if (!this.cuentasSimuladas.has(request.numCuenta)) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        codRespuesta: '001',
-        descRespuesta: 'Cuenta no existe',
-        numCuenta: request.numCuenta,
-        nuevoSaldo: 0,
-      };
+      throw new AccountNotFoundException(request.numCuenta);
     }
 
     const saldoActual = this.cuentasSimuladas.get(request.numCuenta)!;
 
     // Validar saldo suficiente
     if (saldoActual < request.montoRetiro) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        codRespuesta: '003',
-        descRespuesta: 'Saldo insuficiente',
-        numCuenta: request.numCuenta,
-        nuevoSaldo: saldoActual,
-      };
+      throw new InsufficientBalanceException(request.numCuenta, saldoActual, request.montoRetiro);
     }
 
     // Simular éxito
@@ -204,18 +192,7 @@ export class ByteMockService {
 
     // Validar que la cuenta existe
     if (!this.cuentasSimuladas.has(request.numCuenta)) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        estadoCuenta: '',
-        fechaUltMov: '',
-        saldoTotal: 0,
-        saldoDisponible: 0,
-        saldoReservas: 0,
-        saldoBloqueos: 0,
-        codRespuesta: '001',
-        descRespuesta: 'Cuenta no existe',
-      };
+      throw new AccountNotFoundException(request.numCuenta);
     }
 
     const saldoActual = this.cuentasSimuladas.get(request.numCuenta)!;
@@ -258,46 +235,26 @@ export class ByteMockService {
     // Simular latencia de red
     await this.delay(600);
 
+    // Validar que no sean la misma cuenta
+    if (request.numCuentaOrigen === request.numCuentaDestino) {
+      throw new InvalidTransactionException('No se puede transferir a la misma cuenta', 'BYTE_004');
+    }
+
     // Validar que la cuenta origen existe
     if (!this.cuentasSimuladas.has(request.numCuentaOrigen)) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        codRespuesta: '001',
-        descRespuesta: 'Cuenta origen no existe',
-      };
+      throw new AccountNotFoundException(request.numCuentaOrigen);
     }
 
     // Validar que la cuenta destino existe
     if (!this.cuentasSimuladas.has(request.numCuentaDestino)) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        codRespuesta: '002',
-        descRespuesta: 'Cuenta destino no existe',
-      };
-    }
-
-    // Validar que no sean la misma cuenta
-    if (request.numCuentaOrigen === request.numCuentaDestino) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        codRespuesta: '004',
-        descRespuesta: 'No se puede transferir a la misma cuenta',
-      };
+      throw new AccountNotFoundException(request.numCuentaDestino);
     }
 
     const saldoOrigen = this.cuentasSimuladas.get(request.numCuentaOrigen)!;
 
     // Validar saldo suficiente
     if (saldoOrigen < request.montoTransferencia) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        codRespuesta: '003',
-        descRespuesta: 'Saldo insuficiente en cuenta origen',
-      };
+      throw new InsufficientBalanceException(request.numCuentaOrigen, saldoOrigen, request.montoTransferencia);
     }
 
     // Realizar transferencia
@@ -351,19 +308,7 @@ export class ByteMockService {
 
     // Validar que el préstamo existe
     if (!this.prestamosSimulados.has(request.numPrestamo)) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        numPrestamo: request.numPrestamo,
-        saldoCapital: 0,
-        saldoInteres: 0,
-        saldoMora: 0,
-        saldoTotal: 0,
-        proximoPago: 0,
-        fechaProximoPago: '',
-        codRespuesta: '001',
-        descRespuesta: 'Préstamo no existe',
-      };
+      throw new LoanNotFoundException(request.numPrestamo);
     }
 
     // Obtener datos del préstamo
@@ -405,63 +350,35 @@ export class ByteMockService {
 
     // Validar que el préstamo existe
     if (!this.prestamosSimulados.has(request.numPrestamo)) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        numPrestamo: request.numPrestamo,
-        nuevoSaldo: 0,
-        codRespuesta: '001',
-        descRespuesta: 'Préstamo no existe',
-      };
+      throw new LoanNotFoundException(request.numPrestamo);
     }
 
     // Validar que el monto total coincide con suma de métodos de pago
     const sumaMetodosPago = (request.montoDebito || 0) + (request.montoEfectivo || 0) + (request.montoCheque || 0);
     if (Math.abs(sumaMetodosPago - request.montoTotal) > 0.01) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        numPrestamo: request.numPrestamo,
-        nuevoSaldo: 0,
-        codRespuesta: '002',
-        descRespuesta: 'Monto total no coincide con suma de métodos de pago',
-      };
+      throw new InvalidAmountException(
+        `El monto total (Q${request.montoTotal.toFixed(2)}) no coincide con la suma de débito (Q${(request.montoDebito || 0).toFixed(2)}), efectivo (Q${(request.montoEfectivo || 0).toFixed(2)}) y cheque (Q${(request.montoCheque || 0).toFixed(2)})`
+      );
+    }
+
+    // Validar que hay al menos un método de pago
+    if (sumaMetodosPago === 0) {
+      throw new InvalidAmountException('Debe especificar al menos un método de pago');
     }
 
     // Si se usa débito de cuenta, validar cuenta y saldo
     if (request.montoDebito && request.montoDebito > 0) {
       if (!request.numCuenta) {
-        return {
-          idTransaccion: request.idTransaccion,
-          autorizacion: '',
-          numPrestamo: request.numPrestamo,
-          nuevoSaldo: 0,
-          codRespuesta: '003',
-          descRespuesta: 'Número de cuenta requerido para débito',
-        };
+        throw new InvalidTransactionException('Número de cuenta requerido cuando se especifica monto a debitar', 'BYTE_003');
       }
 
       if (!this.cuentasSimuladas.has(request.numCuenta)) {
-        return {
-          idTransaccion: request.idTransaccion,
-          autorizacion: '',
-          numPrestamo: request.numPrestamo,
-          nuevoSaldo: 0,
-          codRespuesta: '004',
-          descRespuesta: 'Cuenta para débito no existe',
-        };
+        throw new AccountNotFoundException(request.numCuenta);
       }
 
       const saldoCuenta = this.cuentasSimuladas.get(request.numCuenta)!;
       if (saldoCuenta < request.montoDebito) {
-        return {
-          idTransaccion: request.idTransaccion,
-          autorizacion: '',
-          numPrestamo: request.numPrestamo,
-          nuevoSaldo: 0,
-          codRespuesta: '005',
-          descRespuesta: 'Saldo insuficiente en cuenta',
-        };
+        throw new InsufficientBalanceException(request.numCuenta, saldoCuenta, request.montoDebito);
       }
 
       // Debitar de la cuenta
@@ -473,14 +390,9 @@ export class ByteMockService {
     const saldoActual = prestamo.saldoCapital + prestamo.saldoInteres + prestamo.saldoMora;
 
     if (request.montoTotal > saldoActual) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        numPrestamo: request.numPrestamo,
-        nuevoSaldo: saldoActual,
-        codRespuesta: '006',
-        descRespuesta: 'Monto de pago excede saldo del préstamo',
-      };
+      throw new InvalidAmountException(
+        `El monto de pago (Q${request.montoTotal.toFixed(2)}) excede el saldo del préstamo (Q${saldoActual.toFixed(2)})`
+      );
     }
 
     // Aplicar pago (primero mora, luego interés, luego capital)
@@ -550,55 +462,26 @@ export class ByteMockService {
 
     // Validar que el préstamo existe
     if (!this.prestamosSimulados.has(request.numPrestamo)) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        numPrestamo: request.numPrestamo,
-        nuevoSaldo: 0,
-        montoReversado: 0,
-        codRespuesta: '001',
-        descRespuesta: 'Préstamo no existe',
-      };
+      throw new LoanNotFoundException(request.numPrestamo);
     }
 
     // Validar que la transacción original existe
     const transaccionOriginal = this.transaccionesRegistradas.get(request.autorizacionOriginal);
     if (!transaccionOriginal) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        numPrestamo: request.numPrestamo,
-        nuevoSaldo: 0,
-        montoReversado: 0,
-        codRespuesta: '002',
-        descRespuesta: 'Transacción original no encontrada',
-      };
+      throw new AuthorizationNotFoundException(request.autorizacionOriginal);
     }
 
     // Validar que la transacción original es del mismo préstamo
     if (transaccionOriginal.numPrestamo !== request.numPrestamo) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        numPrestamo: request.numPrestamo,
-        nuevoSaldo: 0,
-        montoReversado: 0,
-        codRespuesta: '003',
-        descRespuesta: 'La autorización no corresponde a este préstamo',
-      };
+      throw new InvalidTransactionException(
+        `La autorización ${request.autorizacionOriginal} no corresponde al préstamo ${request.numPrestamo}`,
+        'BYTE_003'
+      );
     }
 
     // Validar que no haya sido reversada previamente
     if (transaccionOriginal.reversada) {
-      return {
-        idTransaccion: request.idTransaccion,
-        autorizacion: '',
-        numPrestamo: request.numPrestamo,
-        nuevoSaldo: 0,
-        montoReversado: 0,
-        codRespuesta: '004',
-        descRespuesta: 'La transacción ya fue reversada',
-      };
+      throw new DuplicateTransactionException(request.idTransaccion);
     }
 
     // Obtener préstamo y restaurar saldos

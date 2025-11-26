@@ -1,7 +1,8 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, TimeoutError } from 'rxjs';
+import { catchError, timeout } from 'rxjs/operators';
 import { 
   DepositoCtaRequestDto, 
   DepositoCtaResponseDto, 
@@ -19,6 +20,12 @@ import {
   ReversaPagoPrestamoResponseDto
 } from './dto';
 import { ByteMockService } from './byte-mock.service';
+import {
+  InvalidTransactionException,
+  InvalidAmountException,
+  ByteServiceUnavailableException,
+  ByteTimeoutException,
+} from './exceptions';
 
 @Injectable()
 export class ByteService {
@@ -46,6 +53,9 @@ export class ByteService {
    * Componente #002 según documentación
    */
   async depositoCta(request: DepositoCtaRequestDto): Promise<DepositoCtaResponseDto> {
+    // Validaciones de negocio
+    this.validateDepositAmounts(request);
+
     // Si estamos en modo mock, usar el servicio simulado
     if (this.useMock) {
       return this.byteMockService.depositoCta(request);
@@ -74,10 +84,16 @@ export class ByteService {
           headers: {
             'Content-Type': 'application/json',
           },
-          timeout: 30000, // 30 segundos timeout
-        })
+          timeout: 30000,
+        }).pipe(
+          catchError((error) => {
+            this.handleHttpError(error, 'depósito');
+            throw error;
+          })
+        )
       );
 
+      this.validateByteResponse(response.data, 'depositoCta_response');
       const byteResponse = response.data.depositoCta_response;
 
       this.logger.log(
@@ -94,15 +110,30 @@ export class ByteService {
         nuevoSaldo: parseFloat(byteResponse.detalle.nuevoSaldo || '0'),
       };
     } catch (error) {
+      if (error instanceof ByteServiceUnavailableException || error instanceof ByteTimeoutException) {
+        throw error;
+      }
       this.logger.error(`Error en comunicación con Byte: ${error.message}`, error.stack);
-      
-      throw new HttpException(
-        {
-          message: 'Error al comunicarse con el servicio Byte',
-          error: error.message,
-        },
-        HttpStatus.SERVICE_UNAVAILABLE,
+      throw new ByteServiceUnavailableException(error.message);
+    }
+  }
+
+  /**
+   * Valida que los montos del depósito sean consistentes
+   */
+  private validateDepositAmounts(request: DepositoCtaRequestDto): void {
+    const efectivo = request.montoEfectivo || 0;
+    const cheque = request.montoCheque || 0;
+    const suma = efectivo + cheque;
+
+    if (Math.abs(suma - request.montoTotal) > 0.01) {
+      throw new InvalidAmountException(
+        `El monto total (Q${request.montoTotal.toFixed(2)}) no coincide con la suma de efectivo (Q${efectivo.toFixed(2)}) y cheque (Q${cheque.toFixed(2)})`
       );
+    }
+
+    if (efectivo === 0 && cheque === 0) {
+      throw new InvalidAmountException('Debe especificar al menos un método de pago (efectivo o cheque)');
     }
   }
 
@@ -138,9 +169,15 @@ export class ByteService {
             'Content-Type': 'application/json',
           },
           timeout: 30000,
-        })
+        }).pipe(
+          catchError((error) => {
+            this.handleHttpError(error, 'retiro');
+            throw error;
+          })
+        )
       );
 
+      this.validateByteResponse(response.data, 'retiroCta_response');
       const byteResponse = response.data.retiroCta_response;
 
       this.logger.log(
@@ -157,15 +194,11 @@ export class ByteService {
         nuevoSaldo: parseFloat(byteResponse.detalle.nuevoSaldo || '0'),
       };
     } catch (error) {
+      if (error instanceof ByteServiceUnavailableException || error instanceof ByteTimeoutException) {
+        throw error;
+      }
       this.logger.error(`Error en comunicación con Byte: ${error.message}`, error.stack);
-      
-      throw new HttpException(
-        {
-          message: 'Error al comunicarse con el servicio Byte',
-          error: error.message,
-        },
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+      throw new ByteServiceUnavailableException(error.message);
     }
   }
 
@@ -200,9 +233,15 @@ export class ByteService {
             'Content-Type': 'application/json',
           },
           timeout: 30000,
-        })
+        }).pipe(
+          catchError((error) => {
+            this.handleHttpError(error, 'consulta de cuenta');
+            throw error;
+          })
+        )
       );
 
+      this.validateByteResponse(response.data, 'consultaCta_response');
       const byteResponse = response.data.consultaCta_response;
 
       this.logger.log(
@@ -223,15 +262,11 @@ export class ByteService {
         descRespuesta: byteResponse.detalle.descRespuesta || '',
       };
     } catch (error) {
+      if (error instanceof ByteServiceUnavailableException || error instanceof ByteTimeoutException) {
+        throw error;
+      }
       this.logger.error(`Error en comunicación con Byte: ${error.message}`, error.stack);
-      
-      throw new HttpException(
-        {
-          message: 'Error al comunicarse con el servicio Byte',
-          error: error.message,
-        },
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+      throw new ByteServiceUnavailableException(error.message);
     }
   }
 
@@ -240,6 +275,8 @@ export class ByteService {
    * Componente #005 según documentación
    */
   async transferCta(request: TransferCtaRequestDto): Promise<TransferCtaResponseDto> {
+    // Validaciones de negocio
+    this.validateTransferAccounts(request);
     // Si estamos en modo mock, usar el servicio simulado
     if (this.useMock) {
       return this.byteMockService.transferCta(request);
@@ -271,10 +308,16 @@ export class ByteService {
             'Content-Type': 'application/json',
           },
           timeout: 30000,
-        })
+        }).pipe(
+          catchError((error) => {
+            this.handleHttpError(error, 'transferencia');
+            throw error;
+          })
+        )
       );
 
-      const byteResponse = response.data.consultaCta_response;
+      this.validateByteResponse(response.data, 'transferCta_response');
+      const byteResponse = response.data.transferCta_response;
 
       this.logger.log(
         `Respuesta Byte - Autorización: ${byteResponse.detalle.autorizacion}, ` +
@@ -288,15 +331,11 @@ export class ByteService {
         descRespuesta: byteResponse.detalle.descRespuesta || '',
       };
     } catch (error) {
+      if (error instanceof ByteServiceUnavailableException || error instanceof ByteTimeoutException || error instanceof InvalidTransactionException) {
+        throw error;
+      }
       this.logger.error(`Error en comunicación con Byte: ${error.message}`, error.stack);
-      
-      throw new HttpException(
-        {
-          message: 'Error al comunicarse con el servicio Byte',
-          error: error.message,
-        },
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+      throw new ByteServiceUnavailableException(error.message);
     }
   }
 
@@ -331,9 +370,15 @@ export class ByteService {
             'Content-Type': 'application/json',
           },
           timeout: 30000,
-        })
+        }).pipe(
+          catchError((error) => {
+            this.handleHttpError(error, 'consulta de préstamo');
+            throw error;
+          })
+        )
       );
 
+      this.validateByteResponse(response.data, 'consultaPrestamo_response');
       const byteResponse = response.data.consultaPrestamo_response;
 
       this.logger.log(
@@ -356,15 +401,11 @@ export class ByteService {
         descRespuesta: byteResponse.detalle.descRespuesta || '',
       };
     } catch (error) {
+      if (error instanceof ByteServiceUnavailableException || error instanceof ByteTimeoutException) {
+        throw error;
+      }
       this.logger.error(`Error en comunicación con Byte: ${error.message}`, error.stack);
-      
-      throw new HttpException(
-        {
-          message: 'Error al comunicarse con el servicio Byte',
-          error: error.message,
-        },
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+      throw new ByteServiceUnavailableException(error.message);
     }
   }
 
@@ -373,6 +414,8 @@ export class ByteService {
    * Componente #007 según documentación
    */
   async pagoPrestamo(request: PagoPrestamoRequestDto): Promise<PagoPrestamoResponseDto> {
+    // Validaciones de negocio
+    this.validatePaymentAmounts(request);
     // Si estamos en modo mock, usar el servicio simulado
     if (this.useMock) {
       return this.byteMockService.pagoPrestamo(request);
@@ -407,9 +450,15 @@ export class ByteService {
             'Content-Type': 'application/json',
           },
           timeout: 30000,
-        })
+        }).pipe(
+          catchError((error) => {
+            this.handleHttpError(error, 'pago de préstamo');
+            throw error;
+          })
+        )
       );
 
+      this.validateByteResponse(response.data, 'pagoPrestamo_response');
       const byteResponse = response.data.pagoPrestamo_response;
 
       this.logger.log(
@@ -427,15 +476,11 @@ export class ByteService {
         descRespuesta: byteResponse.detalle.descRespuesta || '',
       };
     } catch (error) {
+      if (error instanceof ByteServiceUnavailableException || error instanceof ByteTimeoutException || error instanceof InvalidAmountException || error instanceof InvalidTransactionException) {
+        throw error;
+      }
       this.logger.error(`Error en comunicación con Byte: ${error.message}`, error.stack);
-      
-      throw new HttpException(
-        {
-          message: 'Error al comunicarse con el servicio Byte',
-          error: error.message,
-        },
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+      throw new ByteServiceUnavailableException(error.message);
     }
   }
 
@@ -475,9 +520,15 @@ export class ByteService {
             'Content-Type': 'application/json',
           },
           timeout: 30000,
-        })
+        }).pipe(
+          catchError((error) => {
+            this.handleHttpError(error, 'reversa de pago');
+            throw error;
+          })
+        )
       );
 
+      this.validateByteResponse(response.data, 'reversaPagoPrestamo_response');
       const byteResponse = response.data.reversaPagoPrestamo_response;
 
       this.logger.log(
@@ -497,15 +548,90 @@ export class ByteService {
         descRespuesta: byteResponse.detalle.descRespuesta || '',
       };
     } catch (error) {
+      if (error instanceof ByteServiceUnavailableException || error instanceof ByteTimeoutException) {
+        throw error;
+      }
       this.logger.error(`Error en comunicación con Byte: ${error.message}`, error.stack);
-      
-      throw new HttpException(
-        {
-          message: 'Error al comunicarse con el servicio Byte',
-          error: error.message,
-        },
-        HttpStatus.SERVICE_UNAVAILABLE,
+      throw new ByteServiceUnavailableException(error.message);
+    }
+  }
+
+  /**
+   * Maneja errores HTTP de la comunicación con Byte
+   */
+  private handleHttpError(error: any, operacion: string): void {
+    if (error.code === 'ECONNREFUSED') {
+      this.logger.error(`Servicio Byte no disponible - ${operacion}`);
+      throw new ByteServiceUnavailableException('Servicio no disponible');
+    }
+
+    if (error.code === 'ETIMEDOUT' || error.name === 'TimeoutError') {
+      this.logger.error(`Timeout en comunicación con Byte - ${operacion}`);
+      throw new ByteTimeoutException();
+    }
+
+    if (error.response?.status === 503) {
+      this.logger.error(`Servicio Byte temporalmente no disponible - ${operacion}`);
+      throw new ByteServiceUnavailableException('Servicio temporalmente no disponible');
+    }
+
+    if (error.response?.status >= 500) {
+      this.logger.error(`Error interno del servicio Byte - ${operacion}: ${error.response.status}`);
+      throw new ByteServiceUnavailableException(`Error del servidor: ${error.response.status}`);
+    }
+
+    if (error.response?.status === 400) {
+      this.logger.error(`Petición inválida a Byte - ${operacion}: ${JSON.stringify(error.response.data)}`);
+      throw new InvalidTransactionException('Petición inválida al servicio Byte');
+    }
+  }
+
+  /**
+   * Valida que la respuesta de Byte tenga la estructura esperada
+   */
+  private validateByteResponse(data: any, expectedKey: string): void {
+    if (!data || !data[expectedKey]) {
+      this.logger.error(`Respuesta inválida de Byte - No se encontró ${expectedKey}`);
+      throw new ByteServiceUnavailableException('Respuesta inválida del servicio Byte');
+    }
+
+    const response = data[expectedKey];
+    if (!response.infoTx || !response.detalle) {
+      this.logger.error(`Respuesta incompleta de Byte - Faltan campos requeridos`);
+      throw new ByteServiceUnavailableException('Respuesta incompleta del servicio Byte');
+    }
+  }
+
+  /**
+   * Valida los montos de pago de préstamo
+   */
+  private validatePaymentAmounts(request: PagoPrestamoRequestDto): void {
+    const debito = request.montoDebito || 0;
+    const efectivo = request.montoEfectivo || 0;
+    const cheque = request.montoCheque || 0;
+    const suma = debito + efectivo + cheque;
+
+    if (Math.abs(suma - request.montoTotal) > 0.01) {
+      throw new InvalidAmountException(
+        `El monto total (Q${request.montoTotal.toFixed(2)}) no coincide con la suma de débito (Q${debito.toFixed(2)}), efectivo (Q${efectivo.toFixed(2)}) y cheque (Q${cheque.toFixed(2)})`
       );
+    }
+
+    if (debito === 0 && efectivo === 0 && cheque === 0) {
+      throw new InvalidAmountException('Debe especificar al menos un método de pago');
+    }
+
+    if (debito > 0 && (!request.numCuenta || request.numCuenta.trim() === '')) {
+      throw new InvalidTransactionException('Número de cuenta requerido cuando se especifica monto a debitar');
+    }
+  }
+
+  /**
+   * Valida que las cuentas en una transferencia no sean iguales
+   */
+  private validateTransferAccounts(request: TransferCtaRequestDto): void {
+    if (request.numCuentaOrigen === request.numCuentaDestino) {
+      throw new InvalidTransactionException('Las cuentas origen y destino no pueden ser la misma');
     }
   }
 }

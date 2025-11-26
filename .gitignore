@@ -41,3 +41,7 @@ lerna-debug.log*
 
 # SQL files
 *.sql
+
+# Postman collections (contienen tokens y configuraciones sensibles)
+/postman
+postman/

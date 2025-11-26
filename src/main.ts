@@ -3,20 +3,38 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter, AllExceptionsFilter } from './common/filters';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
   const configService = app.get(ConfigService);
   
-  // Habilitar validación global de DTOs
+  // Habilitar validación global de DTOs con mensajes de error personalizados
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => ({
+          field: error.property,
+          errors: Object.values(error.constraints || {}),
+        }));
+        return {
+          statusCode: 400,
+          message: 'Errores de validación',
+          errors: messages,
+        };
+      },
     }),
   );
+
+  // Habilitar filtros globales de excepciones
+  app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter());
 
   // Configuración de Swagger
   const config = new DocumentBuilder()
